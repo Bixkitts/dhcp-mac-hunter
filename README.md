@@ -12,7 +12,8 @@ It can also list all devices connected to a Cisco IOS switch.
 
 # How To Use
 Write the addresses of the DHCP servers
-into "servers.conf" separated by a newline each.
+into a file called "servers.conf" in the same directory as the
+executable separated by a newline each.
 The source folder is not needed to run.
 Launch the executable as an administrator of the DHCP server.
 
