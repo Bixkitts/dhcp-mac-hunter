@@ -52,6 +52,6 @@ DWORD getAllClientsFromDHCPServers (const Serverlist *servers, DHCPClientList *l
 // Reads user input and creates a MAC address from it
 void  cleanupUserList              (DHCPClientList* list);
 
-void freeShallowDstClientList      (DHCPClientList* list);
+void  freeShallowDstClientList     (DHCPClientList* list);
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

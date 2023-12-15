@@ -9,7 +9,6 @@ static int verify_knownhost(ssh_session session)
     char                    buf[10];
     char                   *hexa;
     char                   *p;
-    int                     cmp;
     int                     rc;
  
     rc = 
@@ -103,13 +102,14 @@ int sshConnectAuth(const char* address, const char* username, const char* passwo
     if (outSession == NULL)
         return -1;
     ssh_options_set(outSession, SSH_OPTIONS_HOST, address);
-    // TODO: The old systems use ancient insecure algorithms (even the newish gigabit switches)
     ssh_options_set(outSession, SSH_OPTIONS_KEY_EXCHANGE, "diffie-hellman-group14-sha1,diffie-hellman-group1-sha1");
     ssh_options_set(outSession, SSH_OPTIONS_HOSTKEYS, "ssh-rsa");
     ssh_options_set(outSession, SSH_OPTIONS_HMAC_C_S, "hmac-sha1,hmac-sha1-96");
     ssh_options_set(outSession, SSH_OPTIONS_HMAC_S_C, "hmac-sha1,hmac-sha1-96");
-    // Connect to server
-    rc = ssh_connect(outSession);
+    ssh_options_set(outSession, SSH_OPTIONS_CIPHERS_C_S, "aes128-cbc,3des-cbc,aes192-cbc,aes256-cbc,aes128-gcm,aes256-gcm,aes128-ctr,aes192-ctr,aes256-ctr");
+    ssh_options_set(outSession, SSH_OPTIONS_CIPHERS_S_C, "aes128-cbc,3des-cbc,aes192-cbc,aes256-cbc,aes128-gcm,aes256-gcm,aes128-ctr,aes192-ctr,aes256-ctr");
+    rc = 
+    ssh_connect(outSession);
     if (rc != SSH_OK)
     {
         fprintf(stderr, "\nError connecting to server: %s\n",
@@ -120,20 +120,20 @@ int sshConnectAuth(const char* address, const char* username, const char* passwo
     
     if (verify_knownhost(outSession) < 0)
     {
-        ssh_disconnect(outSession);
-        ssh_free(outSession);
+        ssh_disconnect (outSession);
+        ssh_free       (outSession);
         outSession = NULL;
         return -1;
     }
-    // Authenticate ourselves
-    rc = ssh_userauth_password(outSession, username, password);
+    rc = 
+    ssh_userauth_password(outSession, username, password);
     if (rc != SSH_AUTH_SUCCESS)
     {
-        fprintf(stderr, 
-                "\nError authenticating with password: %s\n",
-                ssh_get_error(outSession));
-        ssh_disconnect(outSession);
-        ssh_free(outSession);
+        fprintf        (stderr, 
+                        "\nError authenticating with password: %s\n",
+                        ssh_get_error(outSession));
+        ssh_disconnect (outSession);
+        ssh_free       (outSession);
         outSession = NULL;
     }
     return rc;
@@ -141,15 +141,20 @@ int sshConnectAuth(const char* address, const char* username, const char* passwo
 
 int sshSingleRemoteExecute(ssh_session session, const char* command, char* outString)
 {
+    if (outString == NULL) {
+        fprintf(stderr, "\nCan't write SSH output to NULL string");
+        return -1;
+    }
     ssh_channel channel;
     int         rc;
     char        buffer[256];
     int         nbytes;
     size_t      total_read = 0;
+    const char *error;
 
     channel = ssh_channel_new(session);
     if (channel == NULL) {
-        char* error = ssh_get_error(session);
+        error = ssh_get_error(session);
         if (error != NULL) {
             printf("\nError creating channel: %s\n", error);
             ssh_string_free_char(error);
@@ -178,7 +183,7 @@ int sshSingleRemoteExecute(ssh_session session, const char* command, char* outSt
             total_read += nbytes;
         }
         else {
-            printf("\nOutput buffer filled....");
+            fprintf(stderr, "\nOutput buffer filled....");
             // Output buffer full, handle error or resize buffer as needed
             break;
         }
@@ -208,14 +213,15 @@ void cleanupSSH(ssh_session session)
 // Converts XXXX.XXXX.XXXX MAC format to XXXXXXXXXXXX
 static int convertDotMacStringMac(const char* dotMAC, char *stringMAC)
 {
-	int index = 0;
+	int       index           = 0;
+	const int macStringLength = 12;
+
 	index = goToNextChar(dotMAC, '.', index);
 	if (index < 0) {
 		return -1;
 	}
 	index -= 4;
 	int i  = 0;
-	const int macStringLength = 12;
 	while (i < macStringLength){
 		if (dotMAC[index] != '.') {
 			stringMAC[i] = dotMAC[index];
@@ -223,8 +229,9 @@ static int convertDotMacStringMac(const char* dotMAC, char *stringMAC)
 		}
 		index++;
 	}
+    return 0;
 }
-void printSwitchPortBuffer(const switchPort buffer)
+void printSwitchPortBuffer(const SwitchPort buffer)
 {
     int index = 0;
     // The presence of a portString dictates whether we're done printing the buffer
@@ -277,37 +284,43 @@ successful_conclusion:
     return offset;
 }
 
-int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, switchPort* outBuffer)
+int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, SwitchPort* outBuffer)
 {
-    const int outBufferSize = 512;
-    *outBuffer = (switchPort)calloc(outBufferSize, sizeof(switchPort_T));
+    int          portCount       = 0;
+    int          portIndex       = 0;
+    long int     index           = 0;
+    int          offset          = 0;
+	char         portString[32]  = { 0 };
+	char         macBuffer [16]  = { 0 };
+
+    *outBuffer = (SwitchPort)calloc(MAX_PORTS_IN_STACK, sizeof(SwitchPort_T));
     if (*outBuffer == NULL) {
         return -1;
     }
-    int          portCount       = 0;
-    int          portIndex       = 0;
-    int          index           = 0;
-    int          offset          = 0;
 
     while (index < inBufferSize){
-        char portString[32] = { 0 };
-        char macBuffer [16] = { 0 };
+        memset(portString, 0, 32);
+        memset(macBuffer, 0, 16);
         convertDotMacStringMac (&inBuffer[index], macBuffer);
         
         // Get the name of the port on the SSH line
 		index = 
         goToStartOfLine        (inBuffer, index);
         offset =
-        getPortStringOnLine    (&inBuffer[index], portString, index);
+        getPortStringOnLine    (&inBuffer[index], portString);
         if (offset < 0){
             goto next_line;
         }
         index += offset;
-        // We're not interested in uplink interfaces
-	    if (inBuffer[index + 4] == '1')
-		   goto next_line;
+        // We're not interested in uplink interfaces.
+        // This is also a dirty hack that should work on the older port string format
+        // i.e.: GiX/X vs GiX/X/X
+        // TODO: pray that there are never more than 9 switches in a stack
+        if (inBuffer[index + 4] == '1' && inBuffer[index + 5] == '/') {
+            goto next_line;
+        }
         // Compare the port strings from the SSH output
-        for (int i = 0; i < outBufferSize; i++)
+        for (int i = 0; i < MAX_PORTS_IN_STACK; i++)
         { 
             // TODO: overflow
             if (strcmp((*outBuffer)[i].portString, portString) == 0) {
@@ -322,20 +335,16 @@ int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, switchPort* 
             }
         }
         // -----------------------------
-        switchPort currentPort = &(*outBuffer)[portIndex];
+        SwitchPort currentPort = &(*outBuffer)[portIndex];
         int        clientCount = currentPort->clientCount;
-        BYTE MAC[6] = { 0 };
+        BYTE       MAC[6]      = { 0 };
         truncateString               (macBuffer, 16);
         getMACfromString             (macBuffer,MAC, 16);
         allocateShallowDstClientList (&currentPort->clients[clientCount]);
-		searchClientListForMAC       (MAC, MAC_ADDRESS_LENGTH, 
+		searchClientListForMAC       (MAC, 
+                                      MAC_ADDRESS_LENGTH, 
                                       &clients, 
                                       &currentPort->clients[clientCount]);
-
-        //if (currentPort->clients[clientCount].data[0]->NumElements == 0) {
-        //    memcpy(currentPort->clients[clientCount].errorMAC, macBuffer, 12);
-        //}
-
         // bounds check
         if ((*outBuffer)[portIndex].clientCount < 255) {
             (*outBuffer)[portIndex].clientCount++;
@@ -343,15 +352,97 @@ int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, switchPort* 
         else {
             break;
         }
-
 	next_line:
         index = goToStartOfNextLine(inBuffer, index);
         if ( index < 0) {
             break;
         }
     }
-    // Print every thing out
     return 0;
 }
 
+int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
+{
+    int         inListIndex       = 0;
+    int         outListIndex      = 0;
+    // Indeces into the port string denoting where to find data
+    int         portNumIndex;
+    const int   switchNumIndex    = 2; // this seems to be the same on any Cisco switch
+    // -------The integers interpreted from the string data-----//
+    PortType    portType          = 0;                         //
+	int         switchNum         = 0;                        //
+	int         portNum           = 0;                       //
+    // -------------------------------------------------------
+    int         intAsciiOffset;
+    int         switchIndexer     = 0;
+    char       *currentPortString = NULL;
+    SwitchPort *tempArray         = NULL;
+
+    static enum portIndeces{
+        OLD_SWITCH_PORT_INDEX = 4,
+        NEW_SWITCH_PORT_INDEX = 6
+    };
+
+    // Older switches only have two digits in the port string instead of three
+    // e.g.: Gi0/1 instead of Gi1/0/1
+    // ASCII offset is changed because old switches start at index 0 while
+    // new ones start at 1.
+    if (inList[0].portString[5] != '/') {
+        portNumIndex   = OLD_SWITCH_PORT_INDEX;
+        intAsciiOffset = 47;
+    }
+    else {
+        portNumIndex   = NEW_SWITCH_PORT_INDEX;
+        intAsciiOffset = 48;
+    }
+
+    *outList  = (SwitchPort)calloc(MAX_PORTS_IN_STACK, sizeof(SwitchPort_T));
+    if ((*outList) == NULL) {
+        return -1;
+    }
+    tempArray = (SwitchPort*)calloc(MAX_PORTS_IN_STACK * PORT_TYPE_COUNT, sizeof(SwitchPort));
+    if (tempArray == NULL) {
+        free(*outList);
+        return -1;
+    }
+    // first pass - store pointers in sequential array
+    while (inList[inListIndex].portString[0] != '\0') {
+        currentPortString = inList[inListIndex].portString;
+        switch(currentPortString[0]){
+        case 'T': 
+            portType = PORT_TYPE_TE;
+            break;
+        case 'G':
+            portType = PORT_TYPE_GI;
+            break;
+        case 'F':
+            portType = PORT_TYPE_FA;
+            break;
+        default:
+            portType = PORT_TYPE_FA;
+            break;
+        }
+        switchNum         = (int)((currentPortString[switchNumIndex]) - intAsciiOffset);
+        portNum           = atoi(&currentPortString[portNumIndex]);
+
+        tempArray[(portType+1)*switchNum*portNum] = &inList[inListIndex];
+        inListIndex++;
+    }
+    // second pass - Put all non-null array addresses next to eachother.
+    for (portNum = 0; portNum < MAX_PORTS_IN_STACK * PORT_TYPE_COUNT; portNum++) {
+		if (tempArray[portNum] != NULL) {
+			memcpy(&(*outList)[outListIndex], tempArray[portNum], sizeof(SwitchPort_T));
+			if (outListIndex < MAX_PORTS_IN_STACK) {
+				outListIndex++;
+			}
+			else {
+				fprintf(stderr, "\nSorting failed: buffer overflow");
+				free(tempArray);
+				return -1;
+			}
+		}
+    }
+    free(tempArray);
+    return 0;
+}
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

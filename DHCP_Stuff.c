@@ -55,9 +55,13 @@ void allocateShallowDstClientList(DHCPClientList *list)
 
 void freeShallowDstClientList(DHCPClientList* list)
 {
+    if (list->data == NULL){
+        return;
+    }
     free(list->data[0]->Clients);
     free(list->data[0]);
     free(list->data);
+    list->data = NULL;
 }
 
 void searchClientListForIP(const DWORD inIP, const DWORD ipMask, const DHCPClientList *clients_in, DHCPClientList *results)
@@ -146,8 +150,11 @@ DWORD getAllClientsFromDHCPServers(const Serverlist *servers, DHCPClientList *li
     DWORD              totalClientsRead = 0;
     DWORD              clientsRead      = 0;
     DWORD              clientsTotal     = 0;
-    list->count = 0;
-    list->data = (LPDHCP_CLIENT_INFO_ARRAY_VQ*)calloc(100, sizeof(LPDHCP_CLIENT_INFO_ARRAY_VQ));
+    list->data = (LPDHCP_CLIENT_INFO_ARRAY_VQ*)calloc(256, sizeof(LPDHCP_CLIENT_INFO_ARRAY_VQ));
+    if (list->data == NULL) {
+        fprintf(stderr, "\nError allocating memory");
+        exit(1);
+    }
     for (DWORD j = 0; j < servers->length; j++){
         DWORD status = 0;
         do {
@@ -155,10 +162,9 @@ DWORD getAllClientsFromDHCPServers(const Serverlist *servers, DHCPClientList *li
             totalClientsRead += clientsRead;
             list->count++;
         } while (status == ERROR_MORE_DATA);
-		wprintf(L"\n\nTotal found clients on %ls: %d", &servers->list[j * SERVERNAME_LEN], totalClientsRead);
+		wprintf(L"\nTotal found clients on %ls: %d", &servers->list[j * SERVERNAME_LEN], totalClientsRead);
 		totalClientsRead = 0;
     }
-
     return ERROR_SUCCESS;
 }
 
@@ -173,7 +179,7 @@ void cleanupUserList(DHCPClientList* list)
             continue;
         }
         DhcpRpcFreeMemory(list->data[i]);
-        //list->data[i] = NULL;
+        list->data[i] = NULL;
     }
     list->count = 0;
     free(list->data);

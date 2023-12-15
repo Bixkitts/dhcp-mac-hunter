@@ -9,9 +9,9 @@ int findCHARSubstring(const char* substring, const char* string, const char stop
         return -1;
     }
 
-    while (string[index] != stopChar){
+    while (string[index] != stopChar && string[index] != '\0') {
 		while (substring[hits] == string[index + hits]){
-            if (substring[hits] != '\0' && string[index + hits] != stopChar) {
+            if (substring[hits] != '\0' && string[index + hits] != stopChar && string[index+hits] != '\0'){
                 hits++;
             } 
             else{
@@ -25,6 +25,16 @@ int findCHARSubstring(const char* substring, const char* string, const char stop
         index++;
     }
     return -1; // substring not found
+}
+
+int getStrLen(const char* string)
+{
+    int  index = 0;
+
+    while (string[index] != '\0') {
+        index++;
+    }
+    return index;
 }
 
 int findBYTESubstring(const char* substring, const DWORD substringLength, const char* string, const DWORD stringLength)

@@ -19,6 +19,8 @@ typedef enum inputType
 	INPUT_TYPE_MAC,
 	INPUT_TYPE_IP,
 	INPUT_TYPE_SWITCHLIST,
+	INPUT_TYPE_DEADPORT_LIST,
+	INPUT_TYPE_HELP,
 	INPUT_TYPE_COUNT
 }inputType;
 
@@ -32,6 +34,9 @@ void  IPHandler         (const char* input, char* output, DWORD length);
 // Expects an IP address and lists all the machines
 // on that switch
 void  switchListHandler (const char* input, char* output, DWORD length);
+// Lists all ports and their last input on a switch
+void  deadPortHandler   (const char* input, char* output, DWORD length);
+void  helpHandler       (const char* input, char* output, DWORD length);
 
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

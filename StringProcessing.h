@@ -30,6 +30,7 @@ void  widenChars           (const char* _srcStr,
 int   goToNextChar         (const char* buffer,
 	                        const char c,
 							DWORD index);
+int   getStrLen            (const char* string);
 // Traverses an array,
 // starting at the given memory address, and replaces
 // the first whitespace character it encounters with 
