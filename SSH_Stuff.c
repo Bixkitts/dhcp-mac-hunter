@@ -425,7 +425,7 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
         switchNum         = (int)((currentPortString[switchNumIndex]) - intAsciiOffset);
         portNum           = atoi(&currentPortString[portNumIndex]);
 
-        tempArray[(portType+1)*switchNum*portNum] = &inList[inListIndex];
+        tempArray[(portType+1) * ((switchNum * MAX_PORTS_ON_SWITCH) + portNum)] = &inList[inListIndex];
         inListIndex++;
     }
     // second pass - Put all non-null array addresses next to eachother.

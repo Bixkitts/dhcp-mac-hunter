@@ -33,9 +33,12 @@ extern DHCPClientList foundClients;
 
 DWORD initialiseDHCP               ();
 void  cleanupDHCP                  ();
-void  printClients                 (DHCPClientList clients);
-// Makes allocations for foundClients
+void  printClients                 (const DHCPClientList clients);
+
+// Allocation for a shallow copy of DHCP ClientList
+// This is disgusting
 void  allocateShallowDstClientList (DHCPClientList* list);
+void  freeShallowDstClientList     (DHCPClientList* list);
 
 // Looks at how many characters the user typed in for a MAC
 // address and determines the length of the address for
@@ -52,6 +55,5 @@ DWORD getAllClientsFromDHCPServers (const Serverlist *servers, DHCPClientList *l
 // Reads user input and creates a MAC address from it
 void  cleanupUserList              (DHCPClientList* list);
 
-void  freeShallowDstClientList     (DHCPClientList* list);
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

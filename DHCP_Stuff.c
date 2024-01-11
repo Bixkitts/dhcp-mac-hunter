@@ -118,7 +118,7 @@ void searchClientListForMAC(const BYTE *MAC, const DWORD MAC_length, const DHCPC
 
 }
 
-void printClients(DHCPClientList clients)
+void printClients(const DHCPClientList clients)
 {
     if (clients.count < 1) {
         wprintf(L"\nNo results for mac: %02x:%02x:%02x:%02x:%02x:%02x",
@@ -130,11 +130,11 @@ void printClients(DHCPClientList clients)
                clients.errorMAC[5]);
     }
     for (int i = 0; i < clients.data[0]->NumElements; i++){
-        LPDHCP_CLIENT_INFO_VQ client = clients.data[0]->Clients[i];
-		BYTE* byte = client->ClientHardwareAddress.Data;
-		DWORD printedIP = 0;
-		convertEndian(&client->ClientIpAddress, &printedIP);
-		wprintf(
+        LPDHCP_CLIENT_INFO_VQ client    = clients.data[0]->Clients[i];
+		BYTE                 *byte      = client->ClientHardwareAddress.Data;
+		DWORD                 printedIP = 0;
+		convertEndian (&client->ClientIpAddress, &printedIP);
+		wprintf       (
 			L"\n%u.%u.%u.%u  %.02x:%.02x:%.02x:%.02x:%.02x:%.02x    %ls",  
 			(unsigned int)(printedIP & 0xFF), (unsigned int)((printedIP >> 8) & 0xFF), (unsigned int)((printedIP >> 16) & 0xFF), (unsigned int)((printedIP >> 24) & 0xFF),
 			byte[0], byte[1], byte[2], byte[3], byte[4], byte[5], 
@@ -150,18 +150,27 @@ DWORD getAllClientsFromDHCPServers(const Serverlist *servers, DHCPClientList *li
     DWORD              totalClientsRead = 0;
     DWORD              clientsRead      = 0;
     DWORD              clientsTotal     = 0;
+
     list->data = (LPDHCP_CLIENT_INFO_ARRAY_VQ*)calloc(256, sizeof(LPDHCP_CLIENT_INFO_ARRAY_VQ));
     if (list->data == NULL) {
-        fprintf(stderr, "\nError allocating memory");
-        exit(1);
+        fprintf (stderr, "\nError allocating memory");
+        exit    (1);
     }
+
     for (DWORD j = 0; j < servers->length; j++){
         DWORD status = 0;
         do {
-            status = DhcpEnumSubnetClientsVQ(&servers->list[j * SERVERNAME_LEN], ALL_SUBNETS, &resume, UINT_MAX, &list->data[list->count], &clientsRead, &clientsTotal);
+            status            = DhcpEnumSubnetClientsVQ(&servers->list[j * SERVERNAME_LEN], 
+                                                        ALL_SUBNETS, 
+                                                        &resume, 
+                                                        UINT_MAX, 
+                                                        &list->data[list->count], 
+                                                        &clientsRead, 
+                                                        &clientsTotal);
             totalClientsRead += clientsRead;
             list->count++;
         } while (status == ERROR_MORE_DATA);
+
 		wprintf(L"\nTotal found clients on %ls: %d", &servers->list[j * SERVERNAME_LEN], totalClientsRead);
 		totalClientsRead = 0;
     }

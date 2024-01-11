@@ -34,14 +34,14 @@ DWORD readTxtList(const char* dir, Serverlist* list)
 
     const size_t lineCount = countLines(config);
     list->length = lineCount;
+
     list->list = (WCHAR*)calloc(SERVERNAME_LEN * lineCount, sizeof(WCHAR));
-
     char* temp = (char*)malloc(sizeof(char) * SERVERNAME_LEN * lineCount);
-
     if (temp == NULL || list->list == NULL)
     {
-        fclose(config);
-        return GetLastError();
+        // failed to alloc, let's just crash
+        fclose (config);
+        exit   (1);
     }
 
     for (DWORD i = 0; i < lineCount; i++)

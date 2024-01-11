@@ -28,7 +28,7 @@ int main() {
 	printf("\n           -----------             ");
 	printf("\n           \\. '  .  '/             ");
 	printf("\n             -------               ");
-	printf("\n    Welcome to MAC_Hunt3R 2.0.2    ");
+	printf("\n    Welcome to MAC_Hunt3R 2.0.3    ");
 	printf("\n                                   ");
 	printf("\n Are you logged in as a DHCP admin?\n");
 
