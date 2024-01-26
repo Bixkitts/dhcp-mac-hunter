@@ -9,34 +9,15 @@
 #include "DHCP_Stuff.h"
 #include "SSH_Stuff.h"
 
-// Pointer to string and the max length to dereference
-typedef void (*inputHandlerFunction)(const char*, char*, DWORD);
+// Main input handler dispatch function, expects a null-terminated string
+int   handleInput          (const char* userInputString);
 
-typedef enum inputType
-{
-	INPUT_TYPE_UNDEFINED,
-	INPUT_TYPE_REFRESH,
-	INPUT_TYPE_MAC,
-	INPUT_TYPE_IP,
-	INPUT_TYPE_SWITCHLIST,
-	INPUT_TYPE_DEADPORT_LIST,
-	INPUT_TYPE_HELP,
-	INPUT_TYPE_COUNT
-}inputType;
-
-// Main input handler dispatch function
-DWORD handleInput       (char* input, char* output, DWORD length);
-// input handler subroutines
-void  undefinedHandler  (const char* input, char* output, DWORD length);
-void  refreshHandler    (const char* input, char* output, DWORD length);
-void  MACHandler        (const char* input, char* output, DWORD length);
-void  IPHandler         (const char* input, char* output, DWORD length);
-// Expects an IP address and lists all the machines
-// on that switch
-void  switchListHandler (const char* input, char* output, DWORD length);
-// Lists all ports and their last input on a switch
-void  deadPortHandler   (const char* input, char* output, DWORD length);
-void  helpHandler       (const char* input, char* output, DWORD length);
-
+// Prompts the user for a password
+// and produces a null terminated string
+void  getPassword          (char* outString, 
+	                        const int maxLength);
+// Same as getPassword but the input text isn't hidden
+void  getInputString       (char* outString,
+	                        const int maxLength);
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

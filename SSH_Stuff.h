@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+// TODO: are we even compiling it statically?
 #define LIBSSH_STATIC 1
 #include <libssh/libssh.h>
 
@@ -13,19 +14,8 @@
 #include "Defines.h"
 #include "DHCP_Stuff.h"
 
-/* Holds the MAC in string format*/
-typedef struct SwitchPort_T{
-	char           portString [32];
-	DHCPClientList clients    [256];
-	int            clientCount;
-}SwitchPort_T, *SwitchPort;
-
-typedef enum {
-	PORT_TYPE_TE,
-	PORT_TYPE_GI,
-	PORT_TYPE_FA,
-	PORT_TYPE_COUNT
-}PortType;
+typedef struct SwitchPort_T      SwitchPort_T, *SwitchPort;
+typedef struct SwitchPortArray_T SwitchPortArray_T, *SwitchPortArray;
 
 int  sshConnectAuth         (const char* address, 
 	                         const char* username, 
@@ -37,10 +27,15 @@ int  sshSingleRemoteExecute (ssh_session session,
 void cleanupSSH             (ssh_session session);
 int  extractSwitchPortData  (const char* inBuffer, 
 	                         DWORD inBufferSize, 
-	                         SwitchPort* outBuffer);
-int  sortSwitchList         (const SwitchPort inList, 
-	                         SwitchPort* outList);
-void printSwitchPortBuffer  (SwitchPort buffer);
+	                         SwitchPortArray* outBuffer);
+int  sortSwitchArray        (const SwitchPortArray inPortArray, 
+	                         SwitchPortArray* outPortArray);
+void printSwitchPortArray   (SwitchPortArray buffer);
+int  searchSwitchPortArray  (const WCHAR* string,
+	                         const DWORD strlen,
+	                         const SwitchPortArray inList,
+	                         SwitchPortArray* outList);
+void deleteSwitchPortArray  (SwitchPortArray* array);
 
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c
