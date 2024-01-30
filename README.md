@@ -3,8 +3,11 @@ Network analysis tool for Windows sysadmins
 
 # Building
 Open the solution in Visual Studio and make a Release Build.
-The only external dependency required is libssh, which has it's own dependencies
-like zlib and libssl.
+The only external dependency required is libssh version 0.10.x.
+Preferably install the latest version with vcpkg on windows and
+activate the include headers and the project should compile.
+vcpkg should then install all of libssh's dependecies along with
+libssh itself.
 
 # About
 This software is for finding a device by MAC or IP on the entire network.
