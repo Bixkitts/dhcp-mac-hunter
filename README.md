@@ -36,8 +36,6 @@ will return all clients found in that address range.
 ## Searching a Switch
 The software can also print out all hosts found connected to a cisco IOS
 switch. It will log into the switch with SSH and search all the MAC addresses in DHCP.
-It'll only ask for a username and password once, restart the program
-to input it again.
 Use this functionality with "t IP_ADDRESS".
 
 ## Refresh DHCP Data
@@ -45,5 +43,4 @@ The DHCP data needs to be refreshed manually.
 Do this by inputting "r".
 
 # Known Issues
-- 1-2mb memory leak when refreshing DHCP data
-- possible 200kb memory leak when seaching a switch?
+- 1-2mb memory leak when refreshing DHCP data. I think this is microsoft's fault.
