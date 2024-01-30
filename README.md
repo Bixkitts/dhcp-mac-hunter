@@ -18,7 +18,8 @@ Write the addresses of the DHCP servers
 into a file called "servers.conf" in the same directory as the
 executable separated by a newline each.
 The source folder is not needed to run.
-Launch the executable as an administrator of the DHCP server.
+Launch the executable as an administrator of the DHCP server, AND SSH.
+Open an issue if you urgently want proper SSH key auth.
 
 ## Searching a MAC
 Search a mac address by writing in the hex address without
@@ -44,3 +45,19 @@ Do this by inputting "r".
 
 # Known Issues
 - 1-2mb memory leak when refreshing DHCP data. I think this is microsoft's fault.
+
+# Planned Features
+## In descending order of importance...
+- A clean and more robust codebase. I wrote this code as a quick dirty hack to get a project done but it has potential
+  to be invaluable to the budding Windows sysadmin.
+- At least a grep-like string search of results
+- Better security
+- Robustness in target platforms
+- Finding MAC and IP addresses over SSH into switches
+
+# Suggestions and Contributions
+Open an issue on github,
+or hit me up here or over email and help me write it.
+It's currently a quick and dirty hack but with some help I'd be happy to turn this
+into a proper tool.
+(and check out the dev branch, almost every line is rewritten)
