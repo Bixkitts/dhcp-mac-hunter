@@ -21,6 +21,7 @@ typedef enum inputType
 	INPUT_TYPE_SWITCHLIST,
 	INPUT_TYPE_DEADPORT_LIST,
 	INPUT_TYPE_HELP,
+	INPUT_TYPE_PWRESET,
 	INPUT_TYPE_COUNT
 }inputType;
 
@@ -31,6 +32,7 @@ void  undefinedHandler  (const char* input, char* output, DWORD length);
 void  refreshHandler    (const char* input, char* output, DWORD length);
 void  MACHandler        (const char* input, char* output, DWORD length);
 void  IPHandler         (const char* input, char* output, DWORD length);
+void  passwordReset     (const char* input, char* output, DWORD length);
 // Expects an IP address and lists all the machines
 // on that switch
 void  switchListHandler (const char* input, char* output, DWORD length);

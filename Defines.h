@@ -6,7 +6,7 @@
 // Buffer size of the input string
 // taken from the user.
 // should be at least 14 for a MAC address!
-#define INPUT_STRING_LENGTH   20
+#define INPUT_STRING_LENGTH   64
 #define SEARCH_STRING_LENGTH  MAC_ADDRESS_LENGTH
 // Maximum amount of client arrays
 // that will be allocated idk just make the

@@ -14,7 +14,8 @@ static inputHandlerFunction inputHandlers[INPUT_TYPE_COUNT] =
 	IPHandler,         // 3
 	switchListHandler, // 4
     deadPortHandler,
-    helpHandler
+    helpHandler,
+    passwordReset
 };
 
 DWORD handleInput(char* input, char* output, DWORD length)
@@ -36,6 +37,9 @@ DWORD handleInput(char* input, char* output, DWORD length)
     }
     else if (input[0] == 'n') {
         inType = INPUT_TYPE_DEADPORT_LIST;
+    }
+    else if (input[0] == 'p') {
+        inType = INPUT_TYPE_PWRESET;
     }
     else if (input[0] == 'h') {
         inType = INPUT_TYPE_HELP;
@@ -67,6 +71,13 @@ void refreshHandler(const char* input, char* output, DWORD length)
 	initialiseDHCP ();
 	printf         ("\nReady.");
 	return;
+}
+
+void passwordReset(const char* input, char* output, DWORD length)
+{
+    memset(password, 0, INPUT_STRING_LENGTH);
+    memset(username, 0, INPUT_STRING_LENGTH);
+    printf("\nUsername and password credentials cleared.");
 }
 
 void MACHandler(const char* input, char* output, DWORD length)
@@ -260,6 +271,10 @@ void  helpHandler(const char* input, char* output, DWORD length)
     printf("\nList Unused Ports on a Switch:");
     printf("\n- Enter \"n IP_ADDRESS\" to list the last input on");
 	printf("\n  each port for a Cisco IOS switch at the given IP address.\n");
+    printf("\n- Enter \"r\" to refresh DHCP data");
+    printf("\n This will redownload data from DHCP servers in servers.conf");
+    printf("\n- Enter \"p\" to reset credentials");
+    printf("\nYour credentials will be cleared from cache. \nNOTE: They are not encrypted while in memory.\nNOTE: The credentials should authenticate you for both SSH and DHCP.");
     printf("\n--------------------\n");
 }
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c
