@@ -1,7 +1,39 @@
 #include "SSH_Stuff.h"
 
+struct SwitchPort_T
+{
+	char             portString  [MAX_LABEL_STRING_LENGTH];
+    // Each list will typically represent a search for a MAC,
+    // and contain one client (potentially multiple results tho)
+    // TODO: Perhaps this is too much indirection and
+    // I should concatenate lists?
+	DHCPClientList_T clientlists [MAX_CLIENT_LISTS_PER_PORT];
+	int              clientListCount;
+};
+
+struct SwitchPortArray_T
+{
+    SwitchPort_T ports     [MAX_PORTS_IN_STACK];
+    char        *switchName[MAX_LABEL_STRING_LENGTH];
+    int          portCount;
+};
+
+typedef enum {
+	PORT_TYPE_TE,
+	PORT_TYPE_GI,
+	PORT_TYPE_FA,
+	PORT_TYPE_COUNT
+}PortType;
+
+static int  verify_knownhost          (ssh_session session);
+// TODO: this assumes max size and does not dynamically scale
+static int  allocateSwitchPortArray   (SwitchPortArray* outArray);
+static void copySwitchPort            (const SwitchPort inPort, 
+                                       SwitchPort outPort);
+
 static int verify_knownhost(ssh_session session)
 {
+    // TODO: uninitialised
     enum ssh_known_hosts_e  state;
     unsigned char          *hash       = NULL;
     ssh_key                 srv_pubkey = NULL;
@@ -113,9 +145,10 @@ int sshConnectAuth(const char* address, const char* username, const char* passwo
     if (rc != SSH_OK)
     {
         fprintf(stderr, "\nError connecting to server: %s\n",
-            ssh_get_error(outSession));
+                ssh_get_error(outSession));
         ssh_free(outSession);
         outSession = NULL;
+        return -1;
     }
     
     if (verify_knownhost(outSession) < 0)
@@ -231,30 +264,18 @@ static int convertDotMacStringMac(const char* dotMAC, char *stringMAC)
 	}
     return 0;
 }
-void printSwitchPortBuffer(const SwitchPort buffer)
-{
-    int index = 0;
-    // The presence of a portString dictates whether we're done printing the buffer
-    while (buffer[index].portString[0] != 0){
-        printf("\n\nSwitch Port %s:", buffer[index].portString);
-        printf("\n--------------------");
-        for (int j = 0; j < buffer[index].clientCount; j++) {
-            if (buffer[index].clients[j].data[0]->NumElements == 0) {
-                BYTE* errMAC = buffer[index].clients[j].errorMAC;
-				wprintf(L"\nNo results for mac: %02x:%02x:%02x:%02x:%02x:%02x",
-					   errMAC[0],
-					   errMAC[1],
-					   errMAC[2],
-					   errMAC[3],
-					   errMAC[4],
-					   errMAC[5]);
 
-            }
-            else {
-                printClients(buffer[index].clients[j]);
-            }
+void printSwitchPortArray(const SwitchPortArray portArray)
+{
+    // The presence of a portString dictates whether we're done printing the buffer
+    for (int index = 0; index < portArray->portCount; index++) {
+        printf("\n\n");
+        printSwitchName(portArray);
+        printf(" Port %s:", portArray->ports[index].portString);
+        printf("\n--------------------");
+        for (int j = 0; j < portArray->ports[index].clientListCount; j++) {
+            tryPrintClientList(&portArray->ports[index].clientlists[j]);
         }
-        index++;
     }
 
 }
@@ -284,87 +305,177 @@ successful_conclusion:
     return offset;
 }
 
-int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, SwitchPort* outBuffer)
+// TODO: currently we always allocate at max possible volume because it's not that
+// much, but I may want to dynamically scale these arrays.
+static int allocateSwitchPortArray(SwitchPortArray* outArray)
 {
-    int          portCount       = 0;
-    int          portIndex       = 0;
-    long int     index           = 0;
-    int          offset          = 0;
-	char         portString[32]  = { 0 };
-	char         macBuffer [16]  = { 0 };
-
-    *outBuffer = (SwitchPort)calloc(MAX_PORTS_IN_STACK, sizeof(SwitchPort_T));
-    if (*outBuffer == NULL) {
+	deleteSwitchPortArray(outArray);
+    (*outArray) = (SwitchPortArray)calloc(1, sizeof(SwitchPortArray_T));
+    if ((*outArray) == NULL) {
+        fprintf(stderr, "\nSwitchPort Array MALLOC ERROR");
+        exit(1);
         return -1;
     }
+    return 0;
+}
 
-    while (index < inBufferSize){
-        memset(portString, 0, 32);
-        memset(macBuffer, 0, 16);
-        convertDotMacStringMac (&inBuffer[index], macBuffer);
+void deleteSwitchPortArray(SwitchPortArray* array)
+{
+    if (*array == NULL) {
+        return;
+    }
+    for (int i = 0; i < (*array)->portCount; i++) {
+        // Each port in the port array will have multiple
+        // client lists in it, one for each search performed.
+        // TODO: maybe make it one concatenated client list
+        // per port?
+        for (int j = 0; j < (*array)->ports[i].clientListCount; j++) {
+            clearDHCPClientList(&(*array)->ports[i].clientlists[j]);
+        }
+    }
+    free(*array);
+    *array = NULL;
+    return;
+}
+
+int extractSwitchPortData(const char* inBuffer, DWORD inBufferSize, SwitchPortArray* outBuffer)
+{
+    int         *portCount       = NULL;
+    int          portIndex       = 0;
+    long int     inBufferIndex   = 0;
+    int          offset          = 0;
+    SwitchPort   portArray       = NULL;
+	char         portString[MAX_LABEL_STRING_LENGTH]    = { 0 };
+	char         macBuffer [MAX_ADDRESS_STRING_LENGTH]  = { 0 };
+
+
+    allocateSwitchPortArray(outBuffer);
+    portArray = (*outBuffer)->ports;
+    portCount = &(*outBuffer)->portCount;
+
+    // Bring us to the first line that'll have a MAC address on it,
+    // which on Cisco IOS switch is incidentally the first line
+    // that says "STATIC"... as far as I can tell.
+    inBufferIndex = findCHARSubstring ("STATIC", inBuffer, 0);
+    inBufferIndex = goToStartOfLine   (inBuffer, inBufferIndex);
+
+    while (inBufferIndex < inBufferSize){
+        memset                 (portString, 0, sizeof(portString));
+        memset                 (macBuffer, 0, sizeof(macBuffer));
+        convertDotMacStringMac (&inBuffer[inBufferIndex], macBuffer);
         
         // Get the name of the port on the SSH line
-		index = 
-        goToStartOfLine        (inBuffer, index);
+		inBufferIndex = 
+        goToStartOfLine        (inBuffer, inBufferIndex);
         offset =
-        getPortStringOnLine    (&inBuffer[index], portString);
+        getPortStringOnLine    (&inBuffer[inBufferIndex], portString);
         if (offset < 0){
             goto next_line;
         }
-        index += offset;
+        inBufferIndex += offset;
         // We're not interested in uplink interfaces.
         // This is also a dirty hack that should work on the older port string format
         // i.e.: GiX/X vs GiX/X/X
         // TODO: pray that there are never more than 9 switches in a stack
-        if (inBuffer[index + 4] == '1' && inBuffer[index + 5] == '/') {
+        if (inBuffer[inBufferIndex + 4] == '1' && inBuffer[inBufferIndex + 5] == '/') {
             goto next_line;
         }
         // Compare the port strings from the SSH output
         for (int i = 0; i < MAX_PORTS_IN_STACK; i++)
         { 
-            // TODO: overflow
-            if (strcmp((*outBuffer)[i].portString, portString) == 0) {
+            // TODO: potential overflow?
+            if (strcmp(portArray[i].portString, portString) == 0) {
                 portIndex = i;
                 break;
             }
-            else if (i >= portCount) {
-                memcpy((*outBuffer)[i].portString, portString, 32);
-                portIndex = portCount;
-                portCount++;
+            else if (i >= (*portCount)) {
+                memcpy(portArray[i].portString, portString, sizeof(portArray[i].portString));
+                portIndex = (*portCount);
+                (*portCount)++;
                 break;
             }
         }
         // -----------------------------
-        SwitchPort currentPort = &(*outBuffer)[portIndex];
-        int        clientCount = currentPort->clientCount;
-        BYTE       MAC[6]      = { 0 };
-        truncateString               (macBuffer, 16);
-        getMACfromString             (macBuffer,MAC, 16);
-        allocateShallowDstClientList (&currentPort->clients[clientCount]);
+        // Here we build a client list in place of a NULL pointer,
+        // from a search for the MAC address interpreted from the
+        // SSH console output
+        SwitchPort currentPort     = &portArray[portIndex];
+        int       *clientListCount = &currentPort->clientListCount;
+        BYTE       MAC[6]          = { 0 };
+        truncateString               (macBuffer, MAX_ADDRESS_STRING_LENGTH);
+        getMACfromString             (macBuffer,MAC, MAX_ADDRESS_STRING_LENGTH);
 		searchClientListForMAC       (MAC, 
                                       MAC_ADDRESS_LENGTH, 
                                       &clients, 
-                                      &currentPort->clients[clientCount]);
+                                      &currentPort->clientlists[(*clientListCount)]);
         // bounds check
-        if ((*outBuffer)[portIndex].clientCount < 255) {
-            (*outBuffer)[portIndex].clientCount++;
+        if (*clientListCount < MAX_CLIENT_LISTS_PER_PORT) {
+            (*clientListCount)++;
         }
         else {
             break;
         }
 	next_line:
-        index = goToStartOfNextLine(inBuffer, index);
-        if ( index < 0) {
+        inBufferIndex = goToStartOfNextLine(inBuffer, inBufferIndex);
+        if ( inBufferIndex < 0) {
             break;
         }
     }
     return 0;
 }
 
-int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
+int searchSwitchPortArray(const WCHAR* string, const DWORD strlen, const SwitchPortArray inPortArray, SwitchPortArray* outPortArray)
 {
-    int         inListIndex       = 0;
-    int         outListIndex      = 0;
+    int         inPortIndex    = 0;
+    int*        outPortCount   = NULL;
+
+    char* currentPortString = NULL;
+    SwitchPort* tempArray   = NULL;
+
+    allocateSwitchPortArray(outPortArray);
+    outPortCount = &(*outPortArray)->portCount;
+    *outPortCount = 0;
+
+    setSwitchName((*outPortArray), getSwitchName(inPortArray));
+
+    // first pass - store pointers in sequential array
+    while (inPortIndex < inPortArray->portCount) {
+
+        for (int i = 0; i < inPortArray->ports[inPortIndex].clientListCount; i++) {
+            if (searchClientListForString(string, &inPortArray->ports[inPortIndex].clientlists[i]) > -1) {
+                copySwitchPort(&inPortArray->ports[inPortIndex], &(*outPortArray)->ports[*outPortCount]);
+                if (*outPortCount < MAX_PORTS_IN_STACK) {
+                    (*outPortCount)++;
+                }
+                else {
+                    fprintf(stderr, "\nSearching failed: buffer overflow");
+                    return -1;
+                }
+
+                break;
+            }              
+        }
+        inPortIndex++;
+    }
+    return 0;
+}
+
+static void copySwitchPort(const SwitchPort inPort, SwitchPort outPort)
+{
+    if (inPort == NULL) {
+        return;
+    }
+    for (int i = 0; i < inPort->clientListCount; i++) {
+        copyDHCPClientList(&inPort->clientlists[i], &outPort->clientlists[i]);
+    }
+    outPort->clientListCount = inPort->clientListCount;
+    memcpy(outPort->portString, inPort->portString, sizeof(outPort->portString));
+}
+
+int sortSwitchArray(const SwitchPortArray inPortArray, SwitchPortArray* outPortArray)
+{
+    int         inPortIndex       = 0;
+    int        *outPortCount      = NULL;
     // Indeces into the port string denoting where to find data
     int         portNumIndex;
     const int   switchNumIndex    = 2; // this seems to be the same on any Cisco switch
@@ -378,7 +489,7 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
     char       *currentPortString = NULL;
     SwitchPort *tempArray         = NULL;
 
-    static enum portIndeces{
+    enum portIndeces{
         OLD_SWITCH_PORT_INDEX = 4,
         NEW_SWITCH_PORT_INDEX = 6
     };
@@ -387,7 +498,7 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
     // e.g.: Gi0/1 instead of Gi1/0/1
     // ASCII offset is changed because old switches start at index 0 while
     // new ones start at 1.
-    if (inList[0].portString[5] != '/') {
+    if (inPortArray->ports[0].portString[5] != '/') {
         portNumIndex   = OLD_SWITCH_PORT_INDEX;
         intAsciiOffset = 47;
     }
@@ -396,18 +507,20 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
         intAsciiOffset = 48;
     }
 
-    *outList  = (SwitchPort)calloc(MAX_PORTS_IN_STACK, sizeof(SwitchPort_T));
-    if ((*outList) == NULL) {
-        return -1;
-    }
+    allocateSwitchPortArray(outPortArray);
+    outPortCount = &(*outPortArray)->portCount;
+    *outPortCount = 0;
+
+    setSwitchName((*outPortArray), getSwitchName(inPortArray));
+
     tempArray = (SwitchPort*)calloc(MAX_PORTS_IN_STACK * PORT_TYPE_COUNT, sizeof(SwitchPort));
     if (tempArray == NULL) {
-        free(*outList);
+        deleteSwitchPortArray(outPortArray);
         return -1;
     }
     // first pass - store pointers in sequential array
-    while (inList[inListIndex].portString[0] != '\0') {
-        currentPortString = inList[inListIndex].portString;
+    while(inPortIndex < inPortArray->portCount){
+        currentPortString = inPortArray->ports[inPortIndex].portString;
         switch(currentPortString[0]){
         case 'T': 
             portType = PORT_TYPE_TE;
@@ -425,19 +538,19 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
         switchNum         = (int)((currentPortString[switchNumIndex]) - intAsciiOffset);
         portNum           = atoi(&currentPortString[portNumIndex]);
 
-        tempArray[(portType+1) * ((switchNum * MAX_PORTS_ON_SWITCH) + portNum)] = &inList[inListIndex];
-        inListIndex++;
+        tempArray[(portType+1) * ((switchNum * MAX_PORTS_ON_SWITCH) + portNum)] = &inPortArray->ports[inPortIndex];
+        inPortIndex++;
     }
     // second pass - Put all non-null array addresses next to eachother.
     for (portNum = 0; portNum < MAX_PORTS_IN_STACK * PORT_TYPE_COUNT; portNum++) {
 		if (tempArray[portNum] != NULL) {
-			memcpy(&(*outList)[outListIndex], tempArray[portNum], sizeof(SwitchPort_T));
-			if (outListIndex < MAX_PORTS_IN_STACK) {
-				outListIndex++;
+            copySwitchPort(tempArray[portNum], &(*outPortArray)->ports[*outPortCount]);
+			if (*outPortCount < MAX_PORTS_IN_STACK) {
+				(*outPortCount)++;
 			}
 			else {
-				fprintf(stderr, "\nSorting failed: buffer overflow");
-				free(tempArray);
+				fprintf (stderr, "\nSorting failed: buffer overflow");
+				free    (tempArray);
 				return -1;
 			}
 		}
@@ -445,4 +558,17 @@ int sortSwitchList(const SwitchPort inList, SwitchPort* outList)
     free(tempArray);
     return 0;
 }
+char* getSwitchName(SwitchPortArray_T* array)
+{
+    return array->switchName;
+}
+void setSwitchName(SwitchPortArray_T* array, const char* string) 
+{
+    strncpy_s(array->switchName, MAX_LABEL_STRING_LENGTH, string, MAX_LABEL_STRING_LENGTH - 1);
+}
+void printSwitchName(SwitchPortArray_T* array)
+{
+    printf("%s", array->switchName);
+}
+
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

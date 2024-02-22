@@ -28,7 +28,7 @@ int main() {
 	printf("\n           -----------             ");
 	printf("\n           \\. '  .  '/             ");
 	printf("\n             -------               ");
-	printf("\n    Welcome to MAC_Hunt3R 2.1.0    ");
+	printf("\n    Welcome to MAC_Hunt3R 2.5.0    ");
 	printf("\n                                   ");
 	printf("\n Are you logged in as a DHCP admin?\n");
 
@@ -36,11 +36,14 @@ int main() {
 	BOOL shouldExit = FALSE;
 	while (shouldExit == FALSE)
 	{
-		char input      [INPUT_STRING_LENGTH]  = { 0 };
-		char searchTerm [SEARCH_STRING_LENGTH] = { 0 };
-		handleInput(input, searchTerm, INPUT_STRING_LENGTH);
+		char input[INPUT_STRING_LENGTH]  = { 0 };
+
+		printf         ("\n---------------------------------------");
+		printf         ("\nEnter a command or \"h\" for help>");
+		getInputString (input, INPUT_STRING_LENGTH);
+		handleInput    (input);
 	}
 	cleanupDHCP();
-    return ERROR_SUCCESS;
+    return 0;
 }
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

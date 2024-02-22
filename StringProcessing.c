@@ -36,8 +36,17 @@ int getStrLen(const char* string)
     }
     return index;
 }
+int getWStrLen(const WCHAR* string)
+{
+    int  index = 0;
 
-int findBYTESubstring(const char* substring, const DWORD substringLength, const char* string, const DWORD stringLength)
+    while (string[index] != L'\0') {
+        index++;
+    }
+    return index;
+}
+
+int findBYTESubstring(const BYTE* substring, const DWORD substringLength, const BYTE* string, const DWORD stringLength)
 {
     DWORD hits  = 0;
     DWORD index = 0;
@@ -68,91 +77,95 @@ void convertEndian(const DWORD* in, DWORD* out)
 void widenChars(const char* _srcStr, WCHAR* _dstStr, DWORD length)
 {
     size_t outSize;
-    mbstowcs_s(&outSize, (wchar_t*)_dstStr, length, _srcStr, length - 1 );
+    mbstowcs_s(&outSize, (wchar_t*)_dstStr, length, _srcStr, length - 1);
 }
 
 // Reads a string up to the first whitespace and discards everything after that
-void truncateWideString(WCHAR* stringIn, const DWORD _len)
+int truncateWideString(WCHAR* outString, const DWORD maxLength)
 {
     DWORD index = 0;
-    while (index < _len){
-        if (stringIn[index] == L' ' || stringIn[index] == L'\n' || stringIn[index] == L'\r'){
-            stringIn[index] = L'\0';
+    while (index < maxLength){
+        if (outString[index] == L' ' || outString[index] == L'\n' || outString[index] == L'\r'){
+            outString[index] = L'\0';
             break;
         }
         index++;
     }
-    return;
+    return index;
 }
 
-void truncateString(char* stringIn, const DWORD _len)
+int truncateString(char* outString, const DWORD maxLength)
 {
     DWORD index = 0;
-    while (index < _len){
-        if (stringIn[index] == ' ' || stringIn[index] == '\n' || stringIn[index] == '\r'){
-            stringIn[index] = '\0';
+    while (index < maxLength){
+        if (outString[index] == ' ' || outString[index] == '\n' || outString[index] == '\r'){
+            outString[index] = '\0';
             break;
         }
         index++;
     }
-    return;
+    return index;
+}
+int getStringFromIP(DWORD ip, WCHAR* outString, size_t maxLen)
+{
+    DWORD printedIP = 0;
+    convertEndian(&ip, &printedIP);
+    // TODO: probably faster ways to convert to string format than this
+    int result = swprintf_s(outString, 
+                            maxLen,
+                            L"%u.%u.%u.%u", 
+                            (unsigned int)(printedIP & 0xFF), (unsigned int)((printedIP >> 8) & 0xFF), (unsigned int)((printedIP >> 16) & 0xFF), (unsigned int)((printedIP >> 24) & 0xFF));
+    return result;
 }
 
-void getPassword(char* password, int maxLength) 
-{
-    int  i = 0;
-    char ch;
+int getStringFromMAC(const BYTE* inMAC, WCHAR* outString, size_t maxLen) {
+    // TODO: probably faster ways to convert to string format than this
+    int result = swprintf_s(outString,
+                            maxLen,
+                            L"%.02x:%.02x:%.02x:%.02x:%.02x:%.02x",
+                            inMAC[0], inMAC[1], inMAC[2], inMAC[3], inMAC[4], inMAC[5]);
+    return result;
 
-    while (1){
-        ch = _getch(); // Read a character without echoing
-        if (ch == '\r' || ch == '\n') { // Check for Enter key
-            password[i] = '\0'; // Null terminate the password string
-            break;
-        }
-        else if (ch == '\b' && i > 0) { // Handle backspace
-            printf("\b \b"); // Erase the character from display
-            i--;
-        }
-        else if (i < maxLength - 1) { // Store the character in the password if within limits
-            password[i] = ch;
-            printf("*"); // Print '*' to show something's being typed
-            i++;
-        }
-    }
 }
 
 void getIPfromString(const unsigned char* input, DWORD* output, DWORD *mask, DWORD length)
 {
-    unsigned char ipMask[4]  = { 0 };
-    unsigned char ip[4]      = { 0 };
-    unsigned char temp[5]    = { 0 };
-    int           tempFigure = 0;
-    int           figure     = 3;
+    unsigned char ipMask      [4] = { 0 };
+    unsigned char ip          [4] = { 0 };
+    unsigned char numString   [5] = { 0 };   // The string that will hold each decimal string number
+                                             // before conversion to a 1-byte unsigned int
+    int           numStringIndex  = 0;
+    int           figure          = 3;
+
     for (int i = 0; i < length; i++){
-        if (input[i] != '.' && input[i] != 0){
-            temp[tempFigure] = input[i];
-            tempFigure++;
+        if (input[i] != '.' && input[i] != '\0') {
+            // Build a string decimal number
+            numString[numStringIndex] = input[i];
+            numStringIndex++;
         }
         else{
-            ip[figure] = atoi(temp);
-            ipMask[figure] = 0xff;
-            tempFigure = 0;
-            memset(temp, 0, sizeof(temp));
+            // We've hit a period or NUL char, convert what we have
+            // to a 1-byte unsigned int (in Big-Endian order, where 
+            // [figure] starts at 3)
+            ip     [figure] = atoi(numString);
+            ipMask [figure] = 0xff;
+            numStringIndex  = 0;
+            memset(numString, 0, sizeof(numString));
             figure--;
         }
-        if (input[i] == 0 || figure < 0 || tempFigure > 4){
+        if (input[i] == 0 || figure < 0 || numStringIndex > 3){
             break;
         }
     }
     *output = *((DWORD*)ip);
-    *mask = *((DWORD*)ipMask);
+    *mask   = *((DWORD*)ipMask);
 }
 
 // TODO: length unused
 void getMACfromString(const unsigned char* input, BYTE *output, DWORD length)
 {
 	for (int i = 0; i < MAC_ADDRESS_LENGTH; i++){
-		int result = sscanf_s(&input[2 * i], "%2hhx", &output[i], sizeof(output[i]));
+		int result = sscanf_s(&input[2 * i], "%2hhx", &output[i]);
 	}
 }
 
@@ -224,6 +237,19 @@ int goToNextChar(const char* buffer, const char c, DWORD index)
     }
     else {
         return -1;
+    }
+}
+
+BOOL stringIsEmpty(const char* const string)
+{
+    if (string == NULL) {
+        return TRUE;
+    }
+    else if (string[0] == '\0') {
+        return TRUE;
+    }
+    else {
+        return FALSE;
     }
 }
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

@@ -11,34 +11,36 @@
 #include "Defines.h"
 #include "StringProcessing.h"
 
+typedef struct DHCPClient_T               DHCPClient_T, *DHCPClient;
+
 typedef struct Serverlist
 {
 	DWORD  length;
 	WCHAR* list;
-} Serverlist;
-
-typedef struct DHCPClientList
+}Serverlist;
+typedef struct Switchlist
 {
-	LPDHCP_CLIENT_INFO_ARRAY_VQ *data;
-	DWORD                        count;
-	// The MAC address string of a search ends up here
-	// if nothing is found in DHCP
-	BYTE                         errorMAC[16];
-} DHCPClientList;
+	DWORD  length;
+	char*  list;
+}Switchlist;
+
+typedef struct DHCPClientList_T
+{
+	DHCPClient_T* clients;
+	int           count;
+    // Any error messages to do with processing a 
+    // client list will be stored here:
+    WCHAR         err[MAX_MESSAGE_STRING_LENGTH];
+}DHCPClientList_T, *DHCPClientList;
 
 // Maybe I should use access functions instead!!
-extern Serverlist     servers;
-extern DHCPClientList clients;
-extern DHCPClientList foundClients;
+extern Serverlist       servers;
+extern DHCPClientList_T clients;
+extern DHCPClientList_T foundClients;
 
 DWORD initialiseDHCP               ();
 void  cleanupDHCP                  ();
-void  printClients                 (const DHCPClientList clients);
-
-// Allocation for a shallow copy of DHCP ClientList
-// This is disgusting
-void  allocateShallowDstClientList (DHCPClientList* list);
-void  freeShallowDstClientList     (DHCPClientList* list);
+void  tryPrintClientList                 (const DHCPClientList clients);
 
 // Looks at how many characters the user typed in for a MAC
 // address and determines the length of the address for
@@ -47,13 +49,25 @@ void  freeShallowDstClientList     (DHCPClientList* list);
 // parsed MAC address, since string delimiters like \0 and \n
 // are all valid bytes in a MAC address.
 DWORD getLengthFromInputMAC        (const char* input, const DWORD maxLen);
-// Searches an existing loaded list for a MAC address
-void  searchClientListForMAC       (const BYTE *MAC, const DWORD inputLength, const DHCPClientList *clients, DHCPClientList *results);
-void  searchClientListForIP	       (const DWORD MAC,const DWORD ipMask, const DHCPClientList *clients, DHCPClientList *results);
+
+int   searchClientListForMAC       (const BYTE *MAC, 
+	                                const DWORD inputLength, 
+	                                const DHCPClientList clients, 
+	                                DHCPClientList results);
+int   searchClientListForIP	       (const DWORD inIP, 
+	                                const DWORD ipMask, 
+	                                const DHCPClientList clients, 
+	                                DHCPClientList results);
+int   searchClientListForString    (const WCHAR* string, 
+	                                DHCPClientList clientsIn);
 // Retrieves list of clients from all subnets on a server
-DWORD getAllClientsFromDHCPServers (const Serverlist *servers, DHCPClientList *list);
+DWORD getAllClientsFromDHCPServers (const Serverlist *servers, 
+	                                DHCPClientList list);
 // Reads user input and creates a MAC address from it
-void  cleanupUserList              (DHCPClientList* list);
+void  clearDHCPClientList          (DHCPClientList list);
+int   getClientCount               (DHCPClientList);
+void  copyDHCPClientList           (const DHCPClientList srcList, 
+	                                DHCPClientList dstList);
 
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c

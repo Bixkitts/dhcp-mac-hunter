@@ -8,8 +8,10 @@
 #include "defines.h"
 
 // Read servers out of servers.conf file
-DWORD readTxtList (const char* dir, 
-	               Serverlist* list);
+DWORD readTxtList       (const char* dir, 
+	                     Serverlist* list);
+DWORD readTxtListShort  (const char* dir, 
+	                     Switchlist* list);
 
 #endif
 //	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c
