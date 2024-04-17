@@ -10,8 +10,8 @@ vcpkg should then install all of libssh's dependecies along with
 libssh itself.
 
 # About
-This software is for finding a device by MAC or IP on the entire network.
-It can also list all devices connected to a Cisco IOS switch.
+This software is for finding a device by MAC or IP or Hostname on the entire network.
+It can also list all devices connected to a Cisco IOS switch, and more.
 
 # How To Use
 Write the addresses of the DHCP servers
@@ -43,21 +43,22 @@ Use this functionality with "t IP_ADDRESS".
 The DHCP data needs to be refreshed manually.
 Do this by inputting "r".
 
+## String Search
+You can also search an entire list of switches for a specific device from MAC, IP or hostname,
+and the program will return the switch and port it was found on.
+See the program help for more information.
+
 # Known Issues
 - 1-2mb memory leak when refreshing DHCP data. I think this is microsoft's fault.
+- Currently no concurrent processing of SSH sessions so the user needs to wait as we log into
+  one switch after the next on a single thread when using the "f" command in particular.
 
 # Planned Features
 ## In descending order of importance...
-- A clean and more robust codebase. I wrote this code as a quick dirty hack to get a project done but it has potential
-  to be invaluable to the budding Windows sysadmin.
-- At least a grep-like string search of results
-- Better security
-- Robustness in target platforms
-- Finding MAC and IP addresses over SSH into switches
+- Concurrent processing of SSH sessions for way more speed
+- Compatibility for other systems
+- Security Features
 
 # Suggestions and Contributions
 Open an issue on github,
 or hit me up here or over email and help me write it.
-It's currently a quick and dirty hack but with some help I'd be happy to turn this
-into a proper tool.
-(and check out the dev branch, almost every line is rewritten)
