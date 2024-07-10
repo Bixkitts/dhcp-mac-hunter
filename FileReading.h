@@ -14,4 +14,4 @@ DWORD readTxtListShort  (const char* dir,
 	                     Switchlist* list);
 
 #endif
-//	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c
+//	Copyright(C) 2023 Sean Bix, full license in MAC_Hunt3r2.c
