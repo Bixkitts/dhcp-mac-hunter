@@ -521,4 +521,4 @@ static void  resetCredentials(const InputTokenArray tokens)
     memset(cachedPassword, 0, INPUT_STRING_LENGTH);
     printf("\nCredentials cleared!\n");
 }
-//	Copyright(C) 2023 Sean Bikkes, full license in MAC_Hunt3r2.c
+//	Copyright(C) 2023 Sean Bix, full license in MAC_Hunt3r2.c
